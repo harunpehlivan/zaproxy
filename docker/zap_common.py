@@ -66,7 +66,7 @@ def load_custom_hooks(hooks_file=None):
     hooks_file - a python file which defines custom hooks
     """
     global zap_hooks
-    hooks_file = hooks_file if hooks_file else os.environ.get('ZAP_HOOKS', '~/.zap_hooks.py')
+    hooks_file = hooks_file or os.environ.get('ZAP_HOOKS', '~/.zap_hooks.py')
     hooks_file = os.path.expanduser(hooks_file)
 
     if not os.path.exists(hooks_file):
@@ -74,7 +74,7 @@ def load_custom_hooks(hooks_file=None):
         hooks_file2 = os.path.expanduser('wrk/' + hooks_file)
         if os.path.exists(hooks_file2):
             hooks_file = hooks_file2
-        
+
     if not os.path.exists(hooks_file):
         logging.warning('Could not find custom hooks file at %s ' % os.path.abspath(hooks_file))
         return
@@ -119,11 +119,8 @@ def trigger_hook(name, *args, **kwargs):
 
     logging.debug('Trigger hook: %s, args: %s' %  (name, arg_length))
 
-    if not zap_hooks:
+    if not zap_hooks or not hasattr(zap_hooks, name):
         return args
-    elif not hasattr(zap_hooks, name):
-        return args
-
     hook_fn = getattr(zap_hooks, name)
     if not callable(hook_fn):
         return args
@@ -135,7 +132,7 @@ def trigger_hook(name, *args, **kwargs):
         return args
     elif arg_length == 1:
       return args
-    elif (isinstance(response, list) or isinstance(response, tuple)) and len(response) != arg_length:
+    elif isinstance(response, (list, tuple)) and len(response) != arg_length:
         return args
     return response
 
@@ -196,7 +193,7 @@ def print_rule(zap, action, alert_list, detailed_output, user_msg, in_progress_i
         print (action + '-NEW: ' + alert_list[0].get('alert') + ' [' + id + '] x ' + str(len(alert_list)) + ' ' + user_msg)
     if detailed_output:
         # Show (up to) first 5 urls, along with the response code (which we have to perform another request for)
-        for alert in alert_list[0:5]:
+        for alert in alert_list[:5]:
             msg = zap.core.message(alert.get('messageId'))
             respHeader = msg['responseHeader']
             code = respHeader[respHeader.index(' ') + 1 : respHeader.index('\r\n')]
@@ -209,9 +206,7 @@ def print_rules(zap, alert_dict, level, config_dict, config_msg, min_level, inc_
     for key, alert_list in sorted(alert_dict.items()):
         #if (config_dict.has_key(key) and config_dict[key] == level):
         if inc_rule(config_dict, key, inc_extra):
-            user_msg = ''
-            if key in config_msg:
-                user_msg = config_msg[key]
+            user_msg = config_msg[key] if key in config_msg else ''
             if min_level <= zap_conf_lvls.index(level):
                 print_rule(zap, level, alert_list, detailed_output, user_msg, in_progress_issues)
             if key in in_progress_issues:
@@ -296,7 +291,7 @@ def wait_for_zap_start(zap, timeout_in_secs = 600):
         # if ZAP doesn't start in 10 mins then its probably not going to start
         timeout_in_secs = 600
 
-    for x in range(0, timeout_in_secs):
+    for x in range(timeout_in_secs):
         try:
             version = zap.core.version
             logging.debug('ZAP Version ' + version)
@@ -351,7 +346,7 @@ def get_free_port():
     while True:
         port = randint(32768, 61000)
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        if not (sock.connect_ex(('127.0.0.1', port)) == 0):
+        if sock.connect_ex(('127.0.0.1', port)) != 0:
             return port
 
 

@@ -12,7 +12,7 @@ def module_name_to_class(module_name):
 
 
 def get_test_cases(directory):
-    directory = directory[0:-1] if directory[-1:] is '/' else directory
+    directory = directory[:-1] if directory[-1:] is '/' else directory
     tests = glob(directory + '/test_*.py')
     test_list = []
     for module_path in tests:
@@ -24,7 +24,7 @@ def get_test_cases(directory):
         # add a default priority
         if not hasattr(klass, 'priority'):
             klass.priority = 1000
-        
+
         test_list.append(klass)
     # lower priority number ... the sooner it gets loaded
     return sorted(test_list, key=lambda k: k.priority, reverse=False)
